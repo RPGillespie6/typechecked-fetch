@@ -2,63 +2,33 @@ package typedfetch
 
 import (
 	"fmt"
-
-	"github.com/swaggest/openapi-go/openapi31"
 )
 
-func generateRequestTypes(reflector *openapi31.Reflector) ([]string, error) {
-	lines := []string{
-		"// Request types",
-		"",
+func generateRequestTypes(method, path string, paramInfo *ParamInfo, bodyInfo *RequestBodyInfo) ([]string, error) {
+	lines := []string{}
+
+	paramLines, err := generateParamType(method, path, paramInfo)
+	if err != nil {
+		return nil, err
 	}
+	lines = append(lines, paramLines...)
 
-	sortedPaths := sortedMapKeys(reflector.Spec.Paths.MapOfPathItemValues)
-	for _, path := range sortedPaths {
-		item := reflector.Spec.Paths.MapOfPathItemValues[path]
-		methods := getPathItemMethods(&item)
-		for _, method := range methods {
-			if method.Operation == nil {
-				continue
-			}
-
-			lines = append(lines, fmt.Sprintf("// %s %s", method.Method, path))
-
-			// Generate the param type
-			paramInfo, err := getParamInfo(reflector, method.Operation, method.Method, path)
-			if err != nil {
-				return nil, err
-			}
-
-			paramLines, err := generateParamType(method.Method, path, paramInfo)
-			if err != nil {
-				return nil, err
-			}
-			lines = append(lines, paramLines...)
-
-			// Generate the body type
-			bodyInfo, err := getRequestBodyInfo(reflector, method.Operation, method.Method, path)
-			if err != nil {
-				return nil, err
-			}
-
-			bodyLines, err := generateBodyType(method.Method, path, bodyInfo)
-			if err != nil {
-				return nil, err
-			}
-			lines = append(lines, bodyLines...)
-
-			// Generate the request type
-			// Example:
-			// type FetchRequestGetFoo = RequestInit & { params?: RequestParamGetFoo; };
-			// type FetchRequestGetFoo2 = RequestInit;
-			// type FetchRequestPostBar = Omit<RequestInit, "body"> & { params: RequestParamPostBar; body: ComponentSchemaAddress; };
-			requestTypeLines, err := generateRequestType(method.Method, path, paramInfo.TsType, paramInfo.Required, paramInfo.Included, bodyInfo.TsType, bodyInfo.Required, bodyInfo.Included)
-			if err != nil {
-				return nil, err
-			}
-			lines = append(lines, requestTypeLines...)
-		}
+	bodyLines, err := generateBodyType(method, path, bodyInfo)
+	if err != nil {
+		return nil, err
 	}
+	lines = append(lines, bodyLines...)
+
+	// Generate the request type
+	// Example:
+	// type FetchRequestGetFoo = RequestInit & { params?: RequestParamGetFoo; };
+	// type FetchRequestGetFoo2 = RequestInit;
+	// type FetchRequestPostBar = Omit<RequestInit, "body"> & { params: RequestParamPostBar; body: ComponentSchemaAddress; };
+	requestTypeLines, err := generateRequestType(method, path, paramInfo.TsType, paramInfo.Required, paramInfo.Included, bodyInfo.TsType, bodyInfo.Required, bodyInfo.Included)
+	if err != nil {
+		return nil, err
+	}
+	lines = append(lines, requestTypeLines...)
 
 	return lines, nil
 }
@@ -96,10 +66,13 @@ func generateRequestType(method, path, paramType string, paramRequired, paramInc
 		intersectionType = fmt.Sprintf(" & { %s %s }", paramDecl, bodyDecl)
 	}
 
-	lines = append(lines, fmt.Sprintf("type Request%s = %s%s;", getUniqueEndpointName(method, path), baseType, intersectionType))
-	lines = append(lines, "")
+	lines = append(lines, fmt.Sprintf("type %s = %s%s & RequestInitExtended;", getRequestTypeName(method, path), baseType, intersectionType))
 
 	return lines, nil
+}
+
+func getRequestTypeName(method, path string) string {
+	return fmt.Sprintf("Request%s", getUniqueEndpointName(method, path))
 }
 
 func getRequestParamTypeName(method, path string) string {

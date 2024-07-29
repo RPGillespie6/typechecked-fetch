@@ -40,7 +40,14 @@ func jsonTypeToTypescriptType(schema map[string]any) (string, error) {
 func jsonObjectToTypescriptType(schema map[string]any) (string, error) {
 	properties, ok := schema["properties"].(map[string]any)
 	if !ok {
-		return "", fmt.Errorf("missing properties: %v", schema["properties"])
+		properties = map[string]any{}
+	}
+
+	additionalProperties, ok := schema["additionalProperties"]
+	hasAdditionalProps := ok
+
+	if len(properties) == 0 && !hasAdditionalProps {
+		return "", fmt.Errorf("missing properties or additionalProperties: %v", schema["properties"])
 	}
 
 	requiredProps, err := getRequiredProps(schema)
@@ -73,6 +80,28 @@ func jsonObjectToTypescriptType(schema map[string]any) (string, error) {
 		}
 		lines = append(lines, fmt.Sprintf("    %s%s: %s;", property, optional, propType))
 	}
+
+	// https://swagger.io/docs/specification/data-models/dictionaries/
+	if hasAdditionalProps {
+		anyAdditionalProps, ok := additionalProperties.(bool)     // additionalProperties: true
+		anyAdditionalProps2, ok2 := additionalProperties.(string) // additionalProperties: {} or additionalProperties: ""
+		if (ok && anyAdditionalProps) || (ok2 && anyAdditionalProps2 == "") {
+			lines = append(lines, "    [key: string]: any;")
+		} else {
+			additionalPropertiesSchema, ok := additionalProperties.(map[string]any)
+			if !ok {
+				return "", fmt.Errorf("invalid additionalProperties: %v", schema["additionalProperties"])
+			}
+
+			propType, err := jsonTypeToTypescriptType(additionalPropertiesSchema)
+			if err != nil {
+				return "", err
+			}
+
+			lines = append(lines, fmt.Sprintf("    [key: string]: %s;", propType))
+		}
+	}
+
 	lines = append(lines, "}")
 	return strings.Join(lines, "\n"), nil
 }
@@ -142,10 +171,7 @@ func getExample(schema map[string]any) string {
 	return getStringProp(schema, "example")
 }
 
-func getDocString(schema map[string]any) string {
-	description := getDescription(schema)
-	example := getExample(schema)
-
+func buildDocString(description, example string) string {
 	if description == "" && example == "" {
 		return ""
 	}
@@ -157,4 +183,10 @@ func getDocString(schema map[string]any) string {
 	}
 
 	return fmt.Sprintf("/** %s */", description)
+}
+
+func getDocString(schema map[string]any) string {
+	description := getDescription(schema)
+	example := getExample(schema)
+	return buildDocString(description, example)
 }

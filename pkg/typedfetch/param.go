@@ -80,6 +80,13 @@ func generateParamType(method, path string, paramInfo *ParamInfo) ([]string, err
 				paramRequiredQ = "?"
 			}
 
+			if param.Description != nil {
+				docString := buildDocString(*param.Description, "")
+				if docString != "" {
+					inLines = append(inLines, "        "+docString)
+				}
+			}
+
 			inLines = append(inLines, fmt.Sprintf("        %s%s: %s;", param.Name, paramRequiredQ, paramType))
 
 			if paramRequired {

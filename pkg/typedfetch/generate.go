@@ -13,8 +13,12 @@ func GenerateTypedFetch(reflector *openapi31.Reflector) (string, error) {
 		"",
 	}
 
-	// Generate all url types
-	lines = append(lines, generateUrlTypes(reflector)...)
+	// Generate shared types
+	sharedTypesLines, err := generateSharedTypes()
+	if err != nil {
+		return "", err
+	}
+	lines = append(lines, sharedTypesLines...)
 
 	// Generate all component types
 	componentTypesLines, err := generateComponentSchemaTypes(reflector)
@@ -23,16 +27,43 @@ func GenerateTypedFetch(reflector *openapi31.Reflector) (string, error) {
 	}
 	lines = append(lines, componentTypesLines...)
 
-	// Generate all param types
-	paramTypesLines, err := generateRequestTypes(reflector)
+	// Generate all requests/response/url types
+	requestTypesLines, err := generateOperationTypes(reflector)
 	if err != nil {
 		return "", err
 	}
-	lines = append(lines, paramTypesLines...)
+	lines = append(lines, requestTypesLines...)
 
-	// Generate client class
-	clientLines := generateClient(reflector)
+	// Generate the client interface
+	clientLines, err := generateClient(reflector)
+	if err != nil {
+		return "", err
+	}
 	lines = append(lines, clientLines...)
 
 	return strings.Join(lines, "\n"), nil
+}
+
+func generateSharedTypes() ([]string, error) {
+	lines := []string{
+		"// Shared types",
+		"",
+		strings.TrimSpace(`
+type RequestInitExtended = {
+    // If you want the response data to be parse as something other than json (json is default)
+    parseAs?: "json" | "text" | "blob" | "arrayBuffer" | "formData" | "bytes";
+
+    // local body serializer -- allows you to customize how the body is serialized before sending
+    // normally not needed unless you are using something like XML instead of JSON
+    bodySerializer?: (body: any) => BodyInit | null;
+
+    // local query serializer -- allows you to customize how the query is serialized before sending
+    // normally not needed unless you are using some custom array serialization like {foo: [1,2,3,4]} => ?foo=1;2;3;4
+    querySerializer?: (query: any) => string;
+}	
+`),
+	}
+	lines = append(lines, "")
+
+	return lines, nil
 }
