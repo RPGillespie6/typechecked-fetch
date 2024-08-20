@@ -16,6 +16,11 @@ func jsonTypeToTypescriptType(schema map[string]any) (string, error) {
 		return componentName, nil
 	}
 
+	// if empty schema, it's an any type
+	if len(schema) == 0 {
+		return "any", nil
+	}
+
 	componentType, ok := schema["type"].(string)
 	if !ok || !isValidJsonType(componentType) {
 		return "", fmt.Errorf("invalid type: %v", componentType)
@@ -71,7 +76,7 @@ func jsonObjectToTypescriptType(schema map[string]any) (string, error) {
 
 		propType, err := jsonTypeToTypescriptType(propSchema)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("%s: %v", property, err)
 		}
 
 		docString := getDocString(propSchema)

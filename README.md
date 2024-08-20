@@ -12,7 +12,7 @@ typed-fetch --openapi examples/petstore-openapi.yaml --output petstore-openapi.d
 ```ts
 // Use the generated library in your .ts files
 import type { Client as PetstoreClient } from "./petstore-openapi"; // petstore-openapi.d.ts
-import { createClient } from "./typed-fetch"; // typed-fetch.ts file from root of this repo
+import createClient from "./typed-fetch"; // typed-fetch.ts file from root of this repo
 
 const client = createClient<PetstoreClient>({ baseUrl: "https://petstore.swagger.io/v2" });
 
