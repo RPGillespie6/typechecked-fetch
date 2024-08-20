@@ -50,6 +50,9 @@ func generateSharedTypes() ([]string, error) {
 		"",
 		strings.TrimSpace(`
 type RequestInitExtended = {
+    // Local headers -- same as RequestInit but with a Record<string, string> instead of HeadersInit
+    headers?: Record<string, string>;
+
     // If you want the response data to be parse as something other than json (json is default)
     parseAs?: "json" | "text" | "blob" | "arrayBuffer" | "formData" | "bytes";
 

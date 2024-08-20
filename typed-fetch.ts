@@ -4,6 +4,9 @@ export interface ClientOptions extends RequestInit {
     // Override fetch function (useful for testing)
     fetch?: (input: Request) => Promise<Response>;
 
+    // Global headers -- these will be added to every request
+    headers?: Record<string, string>;
+
     // global body serializer -- allows you to customize how the body is serialized before sending
     // normally not needed unless you are using something like XML instead of JSON
     bodySerializer?: (body: any) => BodyInit | null;
@@ -20,9 +23,10 @@ export default function createClient<T>(options?: ClientOptions): T {
 ///////////////////////////////////////////////////////////////////
 
 // Like RequestInit but with some custom fields
-type RequestInitExtended = Omit<RequestInit, "body"> & {
+type RequestInitExtended = Omit<RequestInit, "body" | "headers"> & {
     params?: object;
     body?: object | BodyInit | null;
+    headers?: Record<string, string>;
     parseAs?: "json" | "text" | "blob" | "arrayBuffer" | "formData";
 
     // local body serializer -- allows you to customize how the body is serialized before sending
@@ -47,8 +51,21 @@ type TypedFetchParams = {
     cookies?: Record<string, string>;
 };
 
-function defaultBodySerializer(body: object): BodyInit | null {
-    return JSON.stringify(body);
+function defaultBodySerializer(contentType: string, body: any): BodyInit | null {
+    if (contentType.includes("application/json"))
+        return JSON.stringify(body);
+
+    if (contentType.includes("application/x-www-form-urlencoded"))
+        return new URLSearchParams(body as Record<string, string>);
+
+    if (contentType.includes("multipart/form-data")) {
+        const formData = new FormData();
+        for (const [key, value] of Object.entries(body as Record<string, any>))
+            formData.append(key, value);
+        return formData;
+    }
+
+    return body;
 }
 
 function defaultQuerySerializer(query: Record<string, any>): string {
@@ -78,8 +95,22 @@ function resolveParams(url: string, init: RequestInitExtended, params: TypedFetc
     return url;
 }
 
-function resolveBody(init: RequestInitExtended, bodySerializer: (body: any) => BodyInit | null) {
-    init.body = bodySerializer(init.body as any);
+function resolveBody(init: RequestInitExtended, contentType: string, bodySerializer: (contentType: string, body: any) => BodyInit | null) {
+    init.body = bodySerializer(contentType, init.body as any);
+}
+
+function resolveHeaders(init: RequestInitExtended, globalHeaders: Record<string, string> = {}) {
+    let defaultHeaders: Record<string, string> = {}
+    if (init.body) {
+        let defaultContentType = "application/json";
+        if (init.body instanceof Blob || init.body instanceof File || init.body instanceof ArrayBuffer)
+            defaultContentType = "application/octet-stream";
+
+        defaultHeaders["Content-Type"] = defaultContentType;
+    }
+
+    // default headers have the lowest priority, followed by globalHeaders, and finally init.headers
+    return { ...defaultHeaders, ...globalHeaders, ...init.headers };
 }
 
 class ClientImpl {
@@ -90,6 +121,7 @@ class ClientImpl {
         this.#options = {};
         this.#fetchFn = options?.fetch || globalThis.fetch.bind(globalThis);
         this.#options.baseUrl = options?.baseUrl || ""; // Make sure baseUrl is always a string
+        this.#options.headers = options?.headers || {};
     }
 
     async #fetch(method: string, url: string, init?: RequestInitExtended): Promise<TypedFetchResponse> {
@@ -98,6 +130,8 @@ class ClientImpl {
 
         init.method = method;
 
+        init.headers = resolveHeaders(init, this.#options.headers);
+
         if (init?.params) {
             const querySerializer = init?.querySerializer || this.#options.querySerializer || defaultQuerySerializer;
             url = resolveParams(url, init, init.params, querySerializer);
@@ -105,8 +139,10 @@ class ClientImpl {
 
         if (init?.body) {
             const bodySerializer = init?.bodySerializer || this.#options.bodySerializer || defaultBodySerializer;
-            resolveBody(init, bodySerializer);
+            const contentType = init.headers["Content-Type"] || "";
+            resolveBody(init, init.headers["Content-Type"], bodySerializer);
         }
+
 
         const requestUrl = this.#options.baseUrl ? new URL(url, this.#options.baseUrl) : url;
         const request = new Request(requestUrl, init as RequestInit);

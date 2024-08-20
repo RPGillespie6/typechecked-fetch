@@ -126,6 +126,15 @@ func jsonArrayToTypescriptType(schema map[string]any) (string, error) {
 }
 
 func jsonStringToTypescriptType(schema map[string]any) (string, error) {
+	format, ok := schema["format"].(string)
+	if ok {
+		// https://swagger.io/docs/specification/describing-responses/
+		if format == "binary" {
+			var validBinaryFormats = []string{"ArrayBuffer", "Blob", "File"}
+			return strings.Join(validBinaryFormats, " | "), nil
+		}
+	}
+
 	enum, ok := schema["enum"].([]any)
 	if !ok {
 		return "string", nil

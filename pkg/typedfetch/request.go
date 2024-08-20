@@ -56,9 +56,9 @@ func generateRequestType(method, path, paramType string, paramRequired, paramInc
 		bodyDecl = fmt.Sprintf("body%s: %s;", bodyRequiredQ, bodyType)
 	}
 
-	baseType := `Omit<RequestInit, 'body'>`
+	baseType := `Omit<RequestInit, 'headers' | 'body'>`
 	if !bodyIncluded {
-		baseType = "RequestInit"
+		baseType = "Omit<RequestInit, 'headers'>"
 	}
 
 	intersectionType := ""
