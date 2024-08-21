@@ -11,5 +11,7 @@
         "noImplicitOverride": true,
         "noUncheckedIndexedAccess": true,
         "noFallthroughCasesInSwitch": true,
+        "exactOptionalPropertyTypes": true,
+        "noPropertyAccessFromIndexSignature": true,
     }
 }
