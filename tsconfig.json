@@ -2,6 +2,14 @@
     "compilerOptions": {
         "module": "ESNext",
         "target": "ESNext",
-        "strict": true
+        "strict": true,
+        "noImplicitAny": true,
+        "noImplicitThis": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noImplicitReturns": true,
+        "noImplicitOverride": true,
+        "noUncheckedIndexedAccess": true,
+        "noFallthroughCasesInSwitch": true,
     }
 }

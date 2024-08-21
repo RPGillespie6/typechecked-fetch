@@ -139,8 +139,7 @@ class ClientImpl {
 
         if (init?.body) {
             const bodySerializer = init?.bodySerializer || this.#options.bodySerializer || defaultBodySerializer;
-            const contentType = init.headers["Content-Type"] || "";
-            resolveBody(init, init.headers["Content-Type"], bodySerializer);
+            resolveBody(init, init.headers["Content-Type"] || "", bodySerializer);
         }
 
 
